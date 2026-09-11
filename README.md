@@ -24,6 +24,7 @@ The robot is represented as an R-R-P-R chain:
 - Joint 2 limit: +/-150 degrees
 - Joint 3 stroke: 0-210 mm along negative Z
 - Joint 4 limit: +/-360 degrees
+- Base inertia is a fixed-base approximation inferred from the documented 41 kg total mass
 - Effort limits, damping, and the tiny inertia on virtual `quill_slide` are simulation placeholders
 - The SolidWorks output coordinate system for every link must match its URDF link frame. If it does not, transform the COM and inertia tensor before using the model for dynamics research.
 

@@ -1,0 +1,229 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="omron_cobra_s600">
+
+  <!--
+    Draft OMRON/Adept Cobra s600 model.
+
+    The joint geometry and limits are reconstructed from the available STL model and
+    public s600 dimensions. Verify them against the physical robot before hardware use.
+    The supplied SolidWorks mass properties are expressed in each link output frame;
+    keep rpy="0 0 0" only when those output frames match the URDF link frames.
+  -->
+
+  <xacro:arg name="use_meshes" default="false"/>
+
+  <material name="cobra_orange">
+    <color rgba="0.95 0.35 0.05 1.0"/>
+  </material>
+  <material name="dark_gray">
+    <color rgba="0.18 0.18 0.18 1.0"/>
+  </material>
+
+  <link name="world"/>
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <xacro:if value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://omron_cobra_s600_description/meshes/fixed-base.STL"
+                scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="dark_gray"/>
+      </visual>
+    </xacro:if>
+    <xacro:unless value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 0.193695" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.16" length="0.38739"/>
+        </geometry>
+        <material name="dark_gray"/>
+      </visual>
+    </xacro:unless>
+    <collision>
+      <origin xyz="0 0 0.193695" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.16" length="0.38739"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_1" type="revolute">
+    <parent link="base_link"/>
+    <child link="inner_link"/>
+    <origin xyz="0 0 0.38739" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.832596" upper="1.832596" effort="100.0" velocity="6.736676"/>
+    <dynamics damping="0.2" friction="0.0"/>
+  </joint>
+
+  <link name="inner_link">
+    <inertial>
+      <origin xyz="0.156103 0.000002 -0.000872" rpy="0 0 0"/>
+      <mass value="16.281256"/>
+      <inertia ixx="0.041425" ixy="-0.000003" ixz="0.004354"
+               iyy="0.301218" iyz="0.000001" izz="0.318069"/>
+    </inertial>
+    <xacro:if value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://omron_cobra_s600_description/meshes/link1.STL"
+                scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="cobra_orange"/>
+      </visual>
+    </xacro:if>
+    <xacro:unless value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0.1625 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.325 0.10 0.10"/>
+        </geometry>
+        <material name="cobra_orange"/>
+      </visual>
+    </xacro:unless>
+    <collision>
+      <origin xyz="0.1625 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.325 0.10 0.10"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_2" type="revolute">
+    <parent link="inner_link"/>
+    <child link="outer_link"/>
+    <origin xyz="0.325 0 0.05170" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.617994" upper="2.617994" effort="100.0" velocity="12.566371"/>
+    <dynamics damping="0.2" friction="0.0"/>
+  </joint>
+
+  <link name="outer_link">
+    <inertial>
+      <origin xyz="0.063852 0.000174 0.088173" rpy="0 0 0"/>
+      <mass value="8.424651"/>
+      <inertia ixx="0.065913" ixy="-0.000130" ixz="0.019664"
+               iyy="0.155681" iyz="0.000039" izz="0.114892"/>
+    </inertial>
+    <xacro:if value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://omron_cobra_s600_description/meshes/link2.STL"
+                scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="cobra_orange"/>
+      </visual>
+    </xacro:if>
+    <xacro:unless value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0.1375 0 0.06" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.275 0.10 0.12"/>
+        </geometry>
+        <material name="cobra_orange"/>
+      </visual>
+    </xacro:unless>
+    <collision>
+      <origin xyz="0.1375 0 0.06" rpy="0 0 0"/>
+      <geometry><box size="0.275 0.10 0.12"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_3" type="prismatic">
+    <parent link="outer_link"/>
+    <child link="quill_slide"/>
+    <origin xyz="0.275 0 0.411042" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0.0" upper="0.210" effort="500.0" velocity="1.10"/>
+    <dynamics damping="5.0" friction="0.0"/>
+  </joint>
+
+  <!-- Virtual intermediate link required to model coaxial prismatic and rotary joints. -->
+  <link name="quill_slide">
+    <inertial>
+      <mass value="0.0001"/>
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8"/>
+    </inertial>
+  </link>
+
+  <joint name="joint_4" type="revolute">
+    <parent link="quill_slide"/>
+    <child link="quill_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185" upper="6.283185" effort="20.0" velocity="20.943951"/>
+    <dynamics damping="0.05" friction="0.0"/>
+  </joint>
+
+  <link name="quill_link">
+    <inertial>
+      <origin xyz="0.000069 -0.000119 -0.180630" rpy="0 0 0"/>
+      <mass value="0.191479"/>
+      <inertia ixx="0.000004" ixy="0" ixz="0"
+               iyy="0.000004" iyz="0" izz="0.000002"/>
+    </inertial>
+    <xacro:if value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://omron_cobra_s600_description/meshes/link3.STL"
+                scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="dark_gray"/>
+      </visual>
+    </xacro:if>
+    <xacro:unless value="$(arg use_meshes)">
+      <visual>
+        <origin xyz="0 0 -0.18" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.018" length="0.36"/>
+        </geometry>
+        <material name="dark_gray"/>
+      </visual>
+    </xacro:unless>
+    <collision>
+      <origin xyz="0 0 -0.18" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.36"/></geometry>
+    </collision>
+  </link>
+
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <joint name="joint_1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="joint_2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="joint_3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="joint_4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system"
+            name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find omron_cobra_s600_description)/config/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>

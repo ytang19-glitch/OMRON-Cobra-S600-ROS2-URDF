@@ -1,55 +1,115 @@
-# OMRON / Adept Cobra s600 ROS 2 URDF
+# OMRON / Adept Cobra s600 ROS 2 + Gazebo
 
-Draft ROS 2 description reconstructed from four supplied STL files.
+ROS 2 description and Gazebo Harmonic simulation of the OMRON/Adept Cobra s600 SCARA robot.
 
-## Robot structure
+The robot is represented as an R-R-P-R chain:
 
-The robot is modeled as the SCARA chain R-R-P-R:
+`world -> base_link -> joint_1 -> inner_link -> joint_2 -> outer_link -> joint_3 -> quill_slide -> joint_4 -> quill_link`
 
-`base_link -> joint_1 -> inner_link -> joint_2 -> outer_link -> joint_3 -> quill_slide -> joint_4 -> quill_link`
+## What is included
 
-Identified mesh assemblies:
+- Xacro robot description with collision geometry
+- SolidWorks mass, centre-of-mass, and inertia values for Links 1-3
+- Gazebo Harmonic integration through `gz_ros2_control`
+- Joint-state broadcaster
+- Four-joint trajectory controller
+- Primitive fallback visuals, so Gazebo works before the STL files are added
+- Optional STL visuals for the original robot appearance
 
-- `fixed-base.STL` -> base assembly
-- `link1.STL` -> inner link assembly
-- `link2.STL` -> outer link assembly
-- `link3.STL` -> quill assembly
-
-Approximate planar link-center distances used:
+## Model assumptions that still require verification
 
 - Joint 1 to Joint 2: 325 mm
 - Joint 2 to quill axis: 275 mm
-- Total planar reach: 600 mm
+- Joint 1 limit: +/-105 degrees
+- Joint 2 limit: +/-150 degrees
+- Joint 3 stroke: 0-210 mm along negative Z
+- Joint 4 limit: +/-360 degrees
+- Effort limits, damping, and the tiny inertia on virtual `quill_slide` are simulation placeholders
+- The SolidWorks output coordinate system for every link must match its URDF link frame. If it does not, transform the COM and inertia tensor before using the model for dynamics research.
 
-## Joint limits used
+Do not use this draft to command the physical robot until these values have been checked against official documentation or measurements.
 
-- J1: +/-105 deg
-- J2: +/-150 deg
-- J3: 0 to 210 mm
-- J4: +/-360 deg
+## ROS 2 Jazzy / Ubuntu 24.04 setup
 
-J3 moves along `-Z`; `q=0` is the retracted/up position.
-
-## Important limitations
-
-This is a kinematic/visual URDF draft for RViz and further refinement.
-
-Mass and inertia are intentionally omitted because STL geometry alone does not provide trustworthy real robot mass/material data. The `effort` values in the URDF are placeholders and must not be treated as physical actuator limits.
-
-The meshes committed through this chat are low-poly preview versions generated from the supplied STL geometry so the repository can be cloned and tested directly. Keep the same filenames if you later replace them with the original full-resolution STL files.
-
-Before Gazebo, MuJoCo, torque control, collision-critical planning, or hardware control, verify joint origins/axes against the physical robot or official CAD and add correct inertial properties.
-
-## Ubuntu / ROS 2 usage
+Install Gazebo Harmonic and the ROS 2 control packages:
 
 ```bash
+sudo apt update
+sudo apt install ros-jazzy-ros-gz-sim \
+  ros-jazzy-gz-ros2-control \
+  ros-jazzy-ros2-controllers \
+  ros-jazzy-xacro \
+  ros-jazzy-joint-state-publisher-gui \
+  ros-jazzy-rviz2
+```
+
+Clone and build:
+
+```bash
+mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
 git clone https://github.com/ytang19-glitch/OMRON-Cobra-S600-ROS2-URDF.git omron_cobra_s600_description
 
 cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
 colcon build --packages-select omron_cobra_s600_description
 source install/setup.bash
+```
+
+## Start Gazebo
+
+The repository currently uses primitive visuals by default because the four binary STL files have not been committed:
+
+```bash
+ros2 launch omron_cobra_s600_description gazebo.launch.py
+```
+
+After the simulator starts, verify the controllers:
+
+```bash
+ros2 control list_controllers
+```
+
+Expected result:
+
+```text
+cobra_controller            joint_trajectory_controller/JointTrajectoryController  active
+joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster            active
+```
+
+Send a safe test trajectory. Joint 3 is in metres; the other joints are in radians:
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.3, -0.5, 0.08, 0.4], time_from_start: {sec: 4}}]}}"
+```
+
+## Use the STL visuals
+
+Copy these exact files into `meshes/`:
+
+- `fixed-base.STL`
+- `link1.STL`
+- `link2.STL`
+- `link3.STL`
+
+Then rebuild and launch with:
+
+```bash
+cd ~/ros2_ws
+colcon build --packages-select omron_cobra_s600_description
+source install/setup.bash
+ros2 launch omron_cobra_s600_description gazebo.launch.py use_meshes:=true
+```
+
+The STL files are used for appearance only. Gazebo uses simple primitive collision geometry for faster and more stable contact simulation.
+
+## RViz-only display
+
+```bash
 ros2 launch omron_cobra_s600_description display.launch.py
 ```
 
-In RViz, set the Fixed Frame to `base_link` if it is not selected automatically.
+Add `use_meshes:=true` after installing the STL files.

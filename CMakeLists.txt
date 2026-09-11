@@ -3,7 +3,7 @@ project(omron_cobra_s600_description)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY urdf meshes launch
+install(DIRECTORY urdf meshes launch config
   DESTINATION share/${PROJECT_NAME}
 )
 

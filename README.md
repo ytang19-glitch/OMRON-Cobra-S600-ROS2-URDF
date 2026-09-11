@@ -38,6 +38,7 @@ Install Gazebo Harmonic and the ROS 2 control packages:
 sudo apt update
 sudo apt install ros-jazzy-ros-gz-sim \
   ros-jazzy-gz-ros2-control \
+  ros-jazzy-ros-gz-bridge \
   ros-jazzy-ros2-controllers \
   ros-jazzy-xacro \
   ros-jazzy-joint-state-publisher-gui \
@@ -89,7 +90,7 @@ ros2 action send_goal /cobra_controller/follow_joint_trajectory \
 
 ## Visual and collision geometry
 
-The committed STL files are used for appearance by default. Gazebo deliberately uses simple primitive collision geometry for faster and more stable contact simulation.
+The committed STL files are used for appearance by default. The package exports its parent share directory to `GZ_SIM_RESOURCE_PATH`, allowing Gazebo to resolve the converted `model://omron_cobra_s600_description/meshes/...` URIs. Gazebo deliberately uses simple primitive collision geometry for faster and more stable contact simulation.
 
 To troubleshoot mesh loading or run without the STL visuals:
 

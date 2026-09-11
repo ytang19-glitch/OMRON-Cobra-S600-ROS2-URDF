@@ -75,6 +75,58 @@ The four STL files are committed and enabled by default:
 ros2 launch omron_cobra_s600_description gazebo.launch.py
 ```
 
+
+## Isolating Cobra from an FR3 controller manager
+
+If `ros2 control list_controllers` shows controllers such as
+`fr3_arm_controller` or `franka_robot_state_broadcaster`, the command is
+discovering the Franka controller manager instead of the Cobra simulation.
+Use a separate ROS domain for Cobra. Every Cobra terminal must use the same
+domain ID, and Gazebo must be restarted after changing it.
+
+Stop the old Gazebo process, then start Cobra in Terminal 1:
+
+```bash
+pkill -f gz
+ros2 daemon stop
+
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+
+ros2 launch omron_cobra_s600_description gazebo.launch.py
+```
+
+Keep Terminal 1 running. In Terminal 2:
+
+```bash
+export ROS_DOMAIN_ID=42
+ros2 daemon stop
+
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+
+ros2 control list_controllers
+```
+
+Expected result:
+
+```text
+cobra_controller            joint_trajectory_controller/JointTrajectoryController  active
+joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster            active
+```
+
+If the command waits for
+`/controller_manager/list_controllers`, Gazebo is not running on the same
+ROS domain. Check both terminals:
+
+```bash
+echo $ROS_DOMAIN_ID
+```
+
+Both must print `42`. Do not activate FR3 controllers while troubleshooting
+the Cobra simulation.
+
 ## Testing the Gazebo robot
 
 Open a second terminal while Gazebo is running:

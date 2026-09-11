@@ -5,7 +5,9 @@
   <description>ROS 2 description and Gazebo Harmonic simulation for the OMRON/Adept Cobra s600.</description>
   <maintainer email="ytang19@ualberta.ca">Yujie Tang</maintainer>
   <license>See README for mesh/source limitations.</license>
+
   <buildtool_depend>ament_cmake</buildtool_depend>
+
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>rviz2</exec_depend>
@@ -17,8 +19,12 @@
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>forward_command_controller</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
   <export>
-    <!-- Let Gazebo resolve package://... mesh URIs after URDF-to-SDF conversion. -->
     <gazebo_ros gazebo_model_path="${prefix}/../"/>
     <build_type>ament_cmake</build_type>
   </export>

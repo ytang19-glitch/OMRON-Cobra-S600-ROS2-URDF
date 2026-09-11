@@ -13,8 +13,8 @@ The robot is represented as an R-R-P-R chain:
 - Gazebo Harmonic integration through `gz_ros2_control`
 - Joint-state broadcaster
 - Four-joint trajectory controller
-- Primitive fallback visuals, so Gazebo works before the STL files are added
-- Optional STL visuals for the original robot appearance
+- Committed STL visuals for the original robot appearance
+- Optional primitive fallback visuals
 
 ## Model assumptions that still require verification
 
@@ -59,7 +59,7 @@ source install/setup.bash
 
 ## Start Gazebo
 
-The repository currently uses primitive visuals by default because the four binary STL files have not been committed:
+The four STL files are committed and enabled by default:
 
 ```bash
 ros2 launch omron_cobra_s600_description gazebo.launch.py
@@ -86,25 +86,15 @@ ros2 action send_goal /cobra_controller/follow_joint_trajectory \
   "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.3, -0.5, 0.08, 0.4], time_from_start: {sec: 4}}]}}"
 ```
 
-## Use the STL visuals
+## Visual and collision geometry
 
-Copy these exact files into `meshes/`:
+The committed STL files are used for appearance by default. Gazebo deliberately uses simple primitive collision geometry for faster and more stable contact simulation.
 
-- `fixed-base.STL`
-- `link1.STL`
-- `link2.STL`
-- `link3.STL`
-
-Then rebuild and launch with:
+To troubleshoot mesh loading or run without the STL visuals:
 
 ```bash
-cd ~/ros2_ws
-colcon build --packages-select omron_cobra_s600_description
-source install/setup.bash
-ros2 launch omron_cobra_s600_description gazebo.launch.py use_meshes:=true
+ros2 launch omron_cobra_s600_description gazebo.launch.py use_meshes:=false
 ```
-
-The STL files are used for appearance only. Gazebo uses simple primitive collision geometry for faster and more stable contact simulation.
 
 ## RViz-only display
 
@@ -112,4 +102,4 @@ The STL files are used for appearance only. Gazebo uses simple primitive collisi
 ros2 launch omron_cobra_s600_description display.launch.py
 ```
 
-Add `use_meshes:=true` after installing the STL files.
+The committed STL visuals are loaded automatically.

@@ -18,8 +18,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_meshes',
-            default_value='false',
-            description='Use the four STL visuals. Leave false until the STL files are in meshes/.',
+            default_value='true',
+            description='Use the committed STL files for visual geometry.',
         ),
         Node(
             package='robot_state_publisher',

@@ -27,7 +27,23 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
+  <!-- Prevent URDF-to-SDF fixed-joint reduction from removing base_link. -->
+  <gazebo reference="world_joint">
+    <preserveFixedJoint>true</preserveFixedJoint>
+  </gazebo>
+
   <link name="base_link">
+    <!--
+      Base mass is inferred from the documented 41 kg total robot mass minus
+      the three measured moving-link masses. The inertia approximates the
+      primitive base cylinder; the base is fixed to world in simulation.
+    -->
+    <inertial>
+      <origin xyz="0 0 0.193695" rpy="0 0 0"/>
+      <mass value="16.102614"/>
+      <inertia ixx="0.304435" ixy="0" ixz="0"
+               iyy="0.304435" iyz="0" izz="0.206113"/>
+    </inertial>
     <xacro:if value="$(arg use_meshes)">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>

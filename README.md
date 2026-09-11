@@ -67,7 +67,16 @@ The four STL files are committed and enabled by default:
 ros2 launch omron_cobra_s600_description gazebo.launch.py
 ```
 
-After the simulator starts, verify the controllers:
+## Testing the Gazebo robot
+
+Open a second terminal while Gazebo is running:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+```
+
+### 1. Verify the controllers
 
 ```bash
 ros2 control list_controllers
@@ -80,13 +89,83 @@ cobra_controller            joint_trajectory_controller/JointTrajectoryControlle
 joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster            active
 ```
 
-Send a safe test trajectory. Joint 3 is in metres; the other joints are in radians:
+If either controller is not active, inspect the launch terminal before sending motion commands.
+
+### 2. Read the current joint positions
+
+```bash
+ros2 topic echo /joint_states --once
+```
+
+Joint units and configured limits:
+
+| Joint | Type | Unit | Configured range |
+|---|---|---|---|
+| `joint_1` | Revolute | radians | -1.8326 to +1.8326 |
+| `joint_2` | Revolute | radians | -2.6180 to +2.6180 |
+| `joint_3` | Prismatic | metres | 0.00 to 0.21 |
+| `joint_4` | Revolute | radians | -6.2832 to +6.2832 |
+
+Positive `joint_3` motion moves the quill downward because its URDF axis is `0 0 -1`.
+
+### 3. Test each joint separately
+
+Test Joint 1:
 
 ```bash
 ros2 action send_goal /cobra_controller/follow_joint_trajectory \
   control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.3, -0.5, 0.08, 0.4], time_from_start: {sec: 4}}]}}"
+  "{trajectory: {joint_names: [joint_1], points: [{positions: [0.5], time_from_start: {sec: 3}}]}}"
 ```
+
+Test Joint 2:
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_2], points: [{positions: [-0.5], time_from_start: {sec: 3}}]}}"
+```
+
+Test Joint 3 with 100 mm downward travel:
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_3], points: [{positions: [0.10], time_from_start: {sec: 3}}]}}"
+```
+
+Test Joint 4:
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_4], points: [{positions: [0.7], time_from_start: {sec: 3}}]}}"
+```
+
+### 4. Test coordinated motion
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.5, -0.5, 0.10, 0.7], time_from_start: {sec: 4}}]}}"
+```
+
+### 5. Return to the home configuration
+
+```bash
+ros2 action send_goal /cobra_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.0, 0.0, 0.0, 0.0], time_from_start: {sec: 4}}]}}"
+```
+
+### Expected test results
+
+- Every action reports that the goal was accepted and finishes successfully.
+- `joint_1` and `joint_2` rotate the two horizontal SCARA links.
+- `joint_3` moves the quill vertically.
+- `joint_4` rotates the tool shaft.
+- The base remains fixed and the robot does not shake, collapse, or pass through its configured joint limits.
+- `ros2 topic echo /joint_states --once` reports positions close to the commanded targets.
 
 ## Visual and collision geometry
 

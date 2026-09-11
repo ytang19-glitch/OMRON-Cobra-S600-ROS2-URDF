@@ -43,14 +43,16 @@ def generate_launch_description():
     joint_state_broadcaster = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['joint_state_broadcaster', '--controller-manager', '/controller_manager'],
+        arguments=['joint_state_broadcaster', '--controller-manager', '/controller_manager',
+                   '--controller-manager-timeout', '120'],
         output='screen',
     )
 
     cobra_controller = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['cobra_controller', '--controller-manager', '/controller_manager'],
+        arguments=['cobra_controller', '--controller-manager', '/controller_manager',
+                   '--controller-manager-timeout', '120'],
         output='screen',
     )
 

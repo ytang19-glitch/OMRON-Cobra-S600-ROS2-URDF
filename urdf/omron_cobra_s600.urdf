@@ -1,0 +1,131 @@
+<?xml version="1.0"?>
+<!--
+  Draft kinematic URDF reconstructed from supplied OMRON/Adept Cobra s600 STL meshes.
+
+  Meshes are in millimetres, so scale = 0.001.
+
+  Kinematic convention:
+    joint_1: revolute about +Z
+    joint_2: revolute about +Z
+    joint_3: prismatic along -Z, q=0 at fully retracted, 0.210 m stroke
+    joint_4: revolute about +Z, +/-360 deg
+
+  IMPORTANT:
+    - Mass/inertia are intentionally omitted because STL geometry alone does not provide
+      trustworthy real mass properties.
+    - Joint effort limits are placeholders for visualization/URDF compatibility only.
+    - Verify against the physical robot or official CAD before dynamics/control use.
+-->
+<robot name="omron_cobra_s600">
+
+  <material name="light_gray">
+    <color rgba="0.78 0.78 0.78 1.0"/>
+  </material>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/fixed-base.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="light_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/fixed-base.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_1" type="revolute">
+    <parent link="base_link"/>
+    <child link="inner_link"/>
+    <origin xyz="0 0 0.38739" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.832596" upper="1.832596" effort="1.0" velocity="6.736676"/>
+  </joint>
+
+  <link name="inner_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link1.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="light_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link1.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_2" type="revolute">
+    <parent link="inner_link"/>
+    <child link="outer_link"/>
+    <origin xyz="0.325 0 0.05170" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.617994" upper="2.617994" effort="1.0" velocity="12.566371"/>
+  </joint>
+
+  <link name="outer_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link2.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="light_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link2.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_3" type="prismatic">
+    <parent link="outer_link"/>
+    <child link="quill_slide"/>
+    <origin xyz="0.275 0 0.411042" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="0.0" upper="0.210" effort="1.0" velocity="1.10"/>
+  </joint>
+
+  <link name="quill_slide"/>
+
+  <joint name="joint_4" type="revolute">
+    <parent link="quill_slide"/>
+    <child link="quill_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283185" upper="6.283185" effort="1.0" velocity="20.943951"/>
+  </joint>
+
+  <link name="quill_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link3.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="light_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://omron_cobra_s600_description/meshes/link3.STL"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+</robot>

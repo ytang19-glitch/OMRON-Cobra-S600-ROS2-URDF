@@ -13,6 +13,8 @@ def generate_launch_description():
     xacro_file = PathJoinSubstitution([package_share, 'urdf', 'omron_cobra_s600.urdf.xacro'])
 
     use_meshes = LaunchConfiguration('use_meshes')
+    controller_name = LaunchConfiguration('controller_name')
+
     robot_description = Command([
         FindExecutable(name='xacro'), ' ', xacro_file, ' use_meshes:=', use_meshes
     ])
@@ -55,10 +57,10 @@ def generate_launch_description():
         output='screen',
     )
 
-    cobra_controller = Node(
+    selected_controller = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['cobra_controller', '--controller-manager', '/controller_manager',
+        arguments=[controller_name, '--controller-manager', '/controller_manager',
                    '--controller-manager-timeout', '120'],
         output='screen',
     )
@@ -66,8 +68,8 @@ def generate_launch_description():
     load_joint_state_broadcaster = RegisterEventHandler(
         OnProcessExit(target_action=spawn_robot, on_exit=[joint_state_broadcaster])
     )
-    load_cobra_controller = RegisterEventHandler(
-        OnProcessExit(target_action=joint_state_broadcaster, on_exit=[cobra_controller])
+    load_selected_controller = RegisterEventHandler(
+        OnProcessExit(target_action=joint_state_broadcaster, on_exit=[selected_controller])
     )
 
     return LaunchDescription([
@@ -76,10 +78,15 @@ def generate_launch_description():
             default_value='true',
             description='Use the committed STL files for visual geometry.',
         ),
+        DeclareLaunchArgument(
+            'controller_name',
+            default_value='cobra_controller',
+            description='ros2_control controller to spawn after the joint-state broadcaster.',
+        ),
         gazebo,
         robot_state_publisher,
         clock_bridge,
         spawn_robot,
         load_joint_state_broadcaster,
-        load_cobra_controller,
+        load_selected_controller,
     ])

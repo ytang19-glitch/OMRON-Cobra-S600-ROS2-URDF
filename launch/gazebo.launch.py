@@ -33,6 +33,13 @@ def generate_launch_description():
         output='screen',
     )
 
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        output='screen',
+    )
+
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
@@ -71,6 +78,7 @@ def generate_launch_description():
         ),
         gazebo,
         robot_state_publisher,
+        clock_bridge,
         spawn_robot,
         load_joint_state_broadcaster,
         load_cobra_controller,

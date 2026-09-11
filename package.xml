@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>omron_cobra_s600_description</name>
+  <version>0.0.1</version>
+  <description>Draft URDF description reconstructed from OMRON/Adept Cobra s600 STL meshes.</description>
+  <maintainer email="ytang19@ualberta.ca">Yujie Tang</maintainer>
+  <license>See README for mesh/source limitations.</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -26,3 +26,14 @@ cobra_controller:
     constraints:
       stopped_velocity_tolerance: 0.02
       goal_time: 2.0
+
+    effort_controller:
+      type: effort_controllers/JointGroupEffortController
+
+effort_controller:
+  ros__parameters:
+    joints:
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4

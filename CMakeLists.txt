@@ -3,8 +3,13 @@ project(omron_cobra_s600_description)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY urdf meshes launch config
+install(DIRECTORY urdf meshes launch config docs
   DESTINATION share/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/computed_torque_controller.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_package()

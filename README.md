@@ -122,6 +122,147 @@ The implementation is in
 Gazebo dynamics demonstration and must not be used directly on physical
 hardware.
 
+## Linear versus nonlinear test process
+
+Use separate terminals because the Gazebo launch, diagnostic commands, and data
+recorder must run at the same time. Type each command once; do not join two
+`ros2 launch` commands on the same line.
+
+| Terminal | Purpose |
+|---|---|
+| Terminal 1 | Run Gazebo, the effort controller, and either the linear or nonlinear controller |
+| Terminal 2 | Verify controllers, joint feedback, desired trajectory, and tracking error |
+| Terminal 3 | Record identical topics for later comparison |
+
+Every terminal used for this experiment must use the same ROS domain:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+```
+
+### Prepare the latest version
+
+Run this once before the experiments:
+
+```bash
+cd ~/ros2_ws/src/omron_cobra_s600_description
+git switch main
+git pull --ff-only origin main
+chmod +x scripts/control_demo.py
+
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --packages-select omron_cobra_s600_description --symlink-install
+source install/setup.bash
+```
+
+### Test 1: linear PD control
+
+In Terminal 1:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+pkill -f gz
+ros2 launch omron_cobra_s600_description linear_demo.launch.py move_time:=5.0
+```
+
+Keep Terminal 1 running. In Terminal 2:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+
+ros2 control list_controllers
+ros2 topic echo /joint_states --once
+ros2 topic echo /control_demo/error --once
+```
+
+Expected controller state:
+
+```text
+effort_controller         active
+joint_state_broadcaster   active
+```
+
+In Terminal 3, record the test:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+mkdir -p ~/ros2_ws/bags
+cd ~/ros2_ws/bags
+
+ros2 bag record -o linear_test \
+  /clock \
+  /joint_states \
+  /control_demo/desired \
+  /control_demo/error \
+  /effort_controller/commands
+```
+
+Record several complete motion cycles, then press `Ctrl+C` in Terminal 3.
+Stop Terminal 1 with `Ctrl+C` before starting the nonlinear test.
+
+### Test 2: nonlinear computed-torque control
+
+Restart from the same initial position. In Terminal 1:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+pkill -f gz
+ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py move_time:=5.0
+```
+
+Use Terminal 2 for the same controller and topic checks. In Terminal 3:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+cd ~/ros2_ws/bags
+
+ros2 bag record -o nonlinear_test \
+  /clock \
+  /joint_states \
+  /control_demo/desired \
+  /control_demo/error \
+  /effort_controller/commands
+```
+
+Again, record the same number of complete motion cycles.
+
+### Fair comparison requirements
+
+Keep these conditions identical:
+
+- initial joint configuration
+- desired trajectory and target
+- `move_time`
+- Gazebo physics settings
+- payload
+- recording duration
+
+Compare joint-error RMSE, maximum absolute error, phase lag, overshoot, and
+commanded effort. Repeat with `move_time:=8.0`, `5.0`, and `3.0`. Faster
+motion produces stronger dynamic coupling and usually makes the difference
+between linear PD and computed-torque control easier to observe.
+
+Inspect each recording with:
+
+```bash
+ros2 bag info ~/ros2_ws/bags/linear_test
+ros2 bag info ~/ros2_ws/bags/nonlinear_test
+```
+
 ## Isolating Cobra from an FR3 controller manager
 
 If `ros2 control list_controllers` shows controllers such as

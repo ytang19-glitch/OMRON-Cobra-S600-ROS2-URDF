@@ -78,6 +78,50 @@ ros2 launch omron_cobra_s600_description gazebo.launch.py
 ```
 
 
+## Continuous side-to-side control demo
+
+The linear and nonlinear demos use the same continuous sinusoidal reference so
+their tracking errors can be compared fairly. Only `joint_1` swings; Joints
+2-4 hold their startup positions.
+
+Default reference:
+
+- amplitude: 0.8 rad
+- period: 6.0 s
+- motion: centre to one side, through centre to the other side, continuously
+
+Update and rebuild before running:
+
+```bash
+cd ~/ros2_ws/src/omron_cobra_s600_description
+git switch main
+git pull --ff-only origin main
+chmod +x scripts/control_demo.py
+
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select omron_cobra_s600_description --symlink-install
+source install/setup.bash
+export ROS_DOMAIN_ID=42
+```
+
+Run nonlinear computed-torque control:
+
+```bash
+ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py
+```
+
+Run linear PD control for comparison:
+
+```bash
+ros2 launch omron_cobra_s600_description linear_demo.launch.py
+```
+
+The implementation is in
+[`scripts/control_demo.py`](scripts/control_demo.py). This is an approximate
+Gazebo dynamics demonstration and must not be used directly on physical
+hardware.
+
 ## Isolating Cobra from an FR3 controller manager
 
 If `ros2 control list_controllers` shows controllers such as

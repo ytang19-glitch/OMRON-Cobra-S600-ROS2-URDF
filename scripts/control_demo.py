@@ -20,6 +20,8 @@ class ControlDemo(Node):
         self.declare_parameter('move_time', 5.0)
         self.declare_parameter('hold_time', 1.0)
         self.declare_parameter('target', [0.6, -0.8, 0.08, 0.6])
+        self.declare_parameter('swing_amplitude', 0.8)
+        self.declare_parameter('swing_period', 6.0)
         self.declare_parameter('kp', [40.0, 40.0, 220.0, 2.0])
         self.declare_parameter('kd', [12.0, 12.0, 35.0, 0.5])
 
@@ -27,11 +29,16 @@ class ControlDemo(Node):
         self.move_time = float(self.get_parameter('move_time').value)
         self.hold_time = float(self.get_parameter('hold_time').value)
         self.target = [float(x) for x in self.get_parameter('target').value]
+        self.swing_amplitude = min(
+            abs(float(self.get_parameter('swing_amplitude').value)), 1.5)
+        self.swing_period = float(self.get_parameter('swing_period').value)
         self.kp = [float(x) for x in self.get_parameter('kp').value]
         self.kd = [float(x) for x in self.get_parameter('kd').value]
 
         if self.mode not in ('linear', 'nonlinear'):
             raise ValueError("mode must be 'linear' or 'nonlinear'")
+        if self.swing_period <= 0.0:
+            raise ValueError('swing_period must be positive')
 
         self.command_pub = self.create_publisher(
             Float64MultiArray, '/effort_controller/commands', 10)
@@ -48,7 +55,9 @@ class ControlDemo(Node):
         self.create_timer(0.004, self.control_step)  # 250 Hz
 
         self.get_logger().info(
-            f'Starting {self.mode} control demo: home -> target -> home')
+            f'Starting {self.mode} continuous Joint 1 swing: '
+            f'amplitude={self.swing_amplitude:.3f} rad, '
+            f'period={self.swing_period:.3f} s')
 
     def joint_state_cb(self, msg: JointState):
         pos = dict(zip(msg.name, msg.position))
@@ -83,17 +92,19 @@ class ControlDemo(Node):
         return q_ref, dq_ref, ddq_ref
 
     def desired_trajectory(self, t: float):
-        t1 = self.move_time
-        t2 = t1 + self.hold_time
-        t3 = t2 + self.move_time
+        """Continuously swing Joint 1 while holding Joints 2-4 at startup."""
 
-        if t <= t1:
-            return self.segment(self.q0, self.target, t)
-        if t <= t2:
-            return list(self.target), [0.0]*4, [0.0]*4
-        if t <= t3:
-            return self.segment(self.target, self.q0, t - t2)
-        return list(self.q0), [0.0]*4, [0.0]*4
+        omega = 2.0 * math.pi / self.swing_period
+        q_ref = list(self.q0)
+        dq_ref = [0.0] * 4
+        ddq_ref = [0.0] * 4
+
+        q_ref[0] = self.q0[0] + self.swing_amplitude * math.sin(omega * t)
+        dq_ref[0] = self.swing_amplitude * omega * math.cos(omega * t)
+        ddq_ref[0] = (
+            -self.swing_amplitude * omega * omega * math.sin(omega * t))
+
+        return q_ref, dq_ref, ddq_ref
 
     def linear_pd(self, q_ref, dq_ref):
         """Linear joint-space PD torque controller: tau = Kp e + Kd e_dot."""

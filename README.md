@@ -258,12 +258,44 @@ Baseline nonlinear gains:
 'kd': [8.0, 8.0, 14.0, 8.0],
 ```
 
-To test new gains, edit those two arrays in
-`launch/nonlinear_demo.launch.py`. Change only one joint at a time, normally
-by 10-20 percent. Increase `kp` when tracking is too slow or the position
-error is large. Reduce `kp` if the response becomes aggressive or
-oscillatory. Increase `kd` to reduce oscillation and overshoot; reduce it if
-the response is excessively sluggish or noisy.
+The feedback part of the controller is
+
+```text
+position error:  e     = q_desired - q
+velocity error:  e_dot = dq_desired - dq
+feedback:        u     = Kp * e + Kd * e_dot
+```
+
+- `Kp` is the position-correction gain. A larger value pulls the joint toward
+  its desired position more strongly and usually reduces slow tracking error.
+- `Kd` is the velocity-error gain and provides damping. A larger value usually
+  reduces overshoot and oscillation, but too much can make motion sluggish and
+  can amplify noisy velocity measurements.
+
+Use the observed response to decide which gain to change:
+
+| Observed behaviour | Likely cause | Adjustment |
+|---|---|---|
+| Slow response or large position error | `Kp` is too low | Increase `Kp` |
+| Fast response with overshoot | Damping is too low | Increase `Kd` |
+| Continuous oscillation | `Kp` is too high or `Kd` is too low | Decrease `Kp` or increase `Kd` |
+| Very sluggish motion | `Kd` is too high | Decrease `Kd` |
+| Repeated effort saturation | Gains are too aggressive, usually `Kp` | Decrease `Kp` |
+| Noisy effort or shaking | `Kd` may amplify velocity noise, or both gains are high | Decrease `Kd`; if needed, decrease `Kp` |
+| Smooth response, small error, little overshoot, and moderate effort | Gains are suitable | Keep the gains |
+
+To test new gains, edit the arrays in
+`launch/nonlinear_demo.launch.py`. Tune only one joint at a time:
+
+1. Keep `Kd` fixed and increase `Kp` in steps of about 10-20 percent.
+2. Stop increasing `Kp` when oscillation, large overshoot, or effort
+   saturation appears; then reduce it slightly.
+3. Increase `Kd` gradually until overshoot and oscillation decrease.
+4. Repeat the same test for the next joint.
+
+A good gain set is not simply the largest one. It gives small tracking error,
+little overshoot, no sustained oscillation, smooth commanded effort, and a
+reasonable settling time.
 
 For example, test slightly higher Joint 1 gains:
 

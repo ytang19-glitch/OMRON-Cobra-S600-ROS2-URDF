@@ -67,6 +67,8 @@ latest revision and rebuild the ROS 2 package:
 
 [Pull GitHub changes and rebuild](docs/update_and_rebuild.md)
 
+[Common problems and fixes](docs/TROUBLESHOOTING.md)
+
 ## Start Gazebo
 
 The four STL files are committed and enabled by default:

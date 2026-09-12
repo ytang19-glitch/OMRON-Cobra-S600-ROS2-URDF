@@ -240,6 +240,72 @@ ros2 bag record -o nonlinear_test \
 
 Again, record the same number of complete motion cycles.
 
+### Test different Kp and Kd gains
+
+The gain arrays in `launch/nonlinear_demo.launch.py` use this joint order:
+
+| Array index | Joint | Type |
+|---|---|---|
+| 0 | `joint_1` | revolute |
+| 1 | `joint_2` | revolute |
+| 2 | `joint_3` | prismatic |
+| 3 | `joint_4` | revolute |
+
+Baseline nonlinear gains:
+
+```python
+'kp': [18.0, 18.0, 45.0, 25.0],
+'kd': [8.0, 8.0, 14.0, 8.0],
+```
+
+To test new gains, edit those two arrays in
+`launch/nonlinear_demo.launch.py`. Change only one joint at a time, normally
+by 10-20 percent. Increase `kp` when tracking is too slow or the position
+error is large. Reduce `kp` if the response becomes aggressive or
+oscillatory. Increase `kd` to reduce oscillation and overshoot; reduce it if
+the response is excessively sluggish or noisy.
+
+For example, test slightly higher Joint 1 gains:
+
+```python
+'kp': [20.0, 18.0, 45.0, 25.0],
+'kd': [9.0, 8.0, 14.0, 8.0],
+```
+
+Rebuild and launch a slow test first:
+
+```bash
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select omron_cobra_s600_description --symlink-install
+source install/setup.bash
+export ROS_DOMAIN_ID=42
+
+pkill -f gz
+ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py move_time:=8.0
+```
+
+Record each gain set with a unique bag name, for example:
+
+```bash
+mkdir -p ~/ros2_ws/bags
+cd ~/ros2_ws/bags
+
+ros2 bag record -o nonlinear_kp20_kd9 \
+  /clock \
+  /joint_states \
+  /control_demo/desired \
+  /control_demo/error \
+  /effort_controller/commands
+```
+
+Keep the trajectory, initial pose, payload, physics settings, `move_time`, and
+recording duration unchanged. Compare tracking-error RMSE, maximum absolute
+error, overshoot, settling time, oscillation, and RMS commanded effort. Stop
+and lower the gains if the robot becomes unstable or repeatedly reaches its
+effort limits. Joint 3 is prismatic, so its useful gains can be very different
+from the rotary-joint gains.
+
 ### Fair comparison requirements
 
 Keep these conditions identical:

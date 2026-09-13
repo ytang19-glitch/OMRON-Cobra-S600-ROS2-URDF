@@ -20,6 +20,7 @@ class ControlDemo(Node):
         self.declare_parameter('hold_time', 1.0)
         self.declare_parameter('target', [0.6, -0.8, 0.08, 0.6])
         self.declare_parameter('swing_amplitude', 0.8)
+        self.declare_parameter('joint2_amplitude', 0.5)
         self.declare_parameter('swing_period', 6.0)
         self.declare_parameter('kp', [40.0, 40.0, 220.0, 2.0])
         self.declare_parameter('kd', [12.0, 12.0, 35.0, 0.5])
@@ -38,6 +39,8 @@ class ControlDemo(Node):
         self.target = [float(x) for x in self.get_parameter('target').value]
         self.swing_amplitude = min(
             abs(float(self.get_parameter('swing_amplitude').value)), 1.5)
+        self.joint2_amplitude = min(
+            abs(float(self.get_parameter('joint2_amplitude').value)), 1.5)
         self.swing_period = float(self.get_parameter('swing_period').value)
         self.kp = [float(x) for x in self.get_parameter('kp').value]
         self.kd = [float(x) for x in self.get_parameter('kd').value]
@@ -80,6 +83,7 @@ class ControlDemo(Node):
         self.get_logger().info(
             f'Starting {self.mode} controller: '
             f'Joint 1 amplitude={self.swing_amplitude:.3f} rad, '
+            f'Joint 2 amplitude={self.joint2_amplitude:.3f} rad, '
             f'period={self.swing_period:.3f} s')
 
     def joint_state_cb(self, msg: JointState):
@@ -116,16 +120,35 @@ class ControlDemo(Node):
         return q_ref, dq_ref, ddq_ref
 
     def desired_trajectory(self, t: float):
-        """Continuously swing Joint 1 while holding Joints 2-4 at startup."""
+        """Move Joints 1 and 2 continuously while Joints 3 and 4 hold.
+
+        Joint 1 follows sin(omega*t).
+        Joint 2 follows sin(omega*t + pi/2), which excites the coupled
+        two-link SCARA dynamics more clearly than a Joint-1-only test.
+        """
         omega = 2.0 * math.pi / self.swing_period
+        phase = math.pi / 2.0
+
         q_ref = list(self.q0)
         dq_ref = [0.0] * 4
         ddq_ref = [0.0] * 4
 
-        q_ref[0] = self.q0[0] + self.swing_amplitude * math.sin(omega * t)
-        dq_ref[0] = self.swing_amplitude * omega * math.cos(omega * t)
-        ddq_ref[0] = (
-            -self.swing_amplitude * omega * omega * math.sin(omega * t))
+        # Joint 1 sinusoidal reference.
+        a1 = self.swing_amplitude
+        q_ref[0] = self.q0[0] + a1 * math.sin(omega * t)
+        dq_ref[0] = a1 * omega * math.cos(omega * t)
+        ddq_ref[0] = -a1 * omega**2 * math.sin(omega * t)
+
+        # Joint 2 sinusoidal reference with a 90-degree phase shift.
+        a2 = self.joint2_amplitude
+        q_ref[1] = self.q0[1] + a2 * math.sin(omega * t + phase)
+        dq_ref[1] = a2 * omega * math.cos(omega * t + phase)
+        ddq_ref[1] = -a2 * omega**2 * math.sin(omega * t + phase)
+
+        # Joints 3 and 4 stay at their captured startup positions.
+        q_ref[2] = self.q0[2]
+        q_ref[3] = self.q0[3]
+
         return q_ref, dq_ref, ddq_ref
 
     def tracking_errors(self, q_ref, dq_ref):

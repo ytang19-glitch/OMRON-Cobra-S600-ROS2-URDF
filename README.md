@@ -1,6 +1,6 @@
 # OMRON / Adept Cobra s600 ROS 2 + Gazebo
 
-ROS 2 description and Gazebo Harmonic simulation of the OMRON/Adept Cobra s600 SCARA robot.
+ROS 2 Jazzy + Gazebo Harmonic simulation of the OMRON/Adept Cobra s600 SCARA robot.
 
 The robot is represented as an R-R-P-R chain:
 
@@ -12,9 +12,13 @@ The robot is represented as an R-R-P-R chain:
 - SolidWorks mass, centre-of-mass, and inertia values for Links 1-3
 - Gazebo Harmonic integration through `gz_ros2_control`
 - Joint-state broadcaster
-- Four-joint trajectory controller
-- Committed STL visuals for the original robot appearance
-- Optional primitive fallback visuals
+- Joint trajectory and effort control support
+- STL visuals for the original robot appearance
+- Four controller demos implemented in one ROS 2 Python node:
+  - PD control
+  - Computed-torque control
+  - Sliding-mode control
+  - Adaptive-gain robust control
 
 ## Model assumptions that still require verification
 
@@ -26,13 +30,15 @@ The robot is represented as an R-R-P-R chain:
 - Joint 4 limit: +/-360 degrees
 - Base inertia is a fixed-base approximation inferred from the documented 41 kg total mass
 - Effort limits, damping, and the tiny inertia on virtual `quill_slide` are simulation placeholders
-- The SolidWorks output coordinate system for every link must match its URDF link frame. If it does not, transform the COM and inertia tensor before using the model for dynamics research.
+- The SolidWorks output coordinate system for every link must match its URDF link frame
 
-Do not use this draft to command the physical robot until these values have been checked against official documentation or measurements.
+Do not use this simulation controller directly on physical hardware until the model and limits have been validated.
 
-## ROS 2 Jazzy / Ubuntu 24.04 setup
+---
 
-Install Gazebo Harmonic and the ROS 2 control packages:
+# ROS 2 Jazzy / Ubuntu 24.04 setup
+
+Install the required packages:
 
 ```bash
 sudo apt update
@@ -55,43 +61,12 @@ git clone https://github.com/ytang19-glitch/OMRON-Cobra-S600-ROS2-URDF.git omron
 cd ~/ros2_ws
 source /opt/ros/jazzy/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
-colcon build --packages-select omron_cobra_s600_description
+colcon build --packages-select omron_cobra_s600_description --symlink-install
 source install/setup.bash
 ```
-
 
 ## Updating after GitHub changes
 
-When files have changed on GitHub, follow the dedicated guide to pull the
-latest revision and rebuild the ROS 2 package:
-
-[Pull GitHub changes and rebuild](docs/update_and_rebuild.md)
-
-[Common problems and fixes](docs/TROUBLESHOOTING.md)
-
-## Start Gazebo
-
-The four STL files are committed and enabled by default:
-
-```bash
-ros2 launch omron_cobra_s600_description gazebo.launch.py
-```
-
-
-## Continuous side-to-side control demo
-
-The linear and nonlinear demos use the same continuous sinusoidal reference so
-their tracking errors can be compared fairly. Only `joint_1` swings; Joints
-2-4 hold their startup positions.
-
-Default reference:
-
-- amplitude: 0.8 rad
-- period: 6.0 s
-- motion: centre to one side, through centre to the other side, continuously
-
-Update and rebuild before running:
-
 ```bash
 cd ~/ros2_ws/src/omron_cobra_s600_description
 git switch main
@@ -102,147 +77,638 @@ cd ~/ros2_ws
 source /opt/ros/jazzy/setup.bash
 colcon build --packages-select omron_cobra_s600_description --symlink-install
 source install/setup.bash
-export ROS_DOMAIN_ID=42
 ```
 
-Run nonlinear computed-torque control:
+If local files have uncommitted edits, check `git status` before pulling.
 
-```bash
-ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py
-```
+---
 
-Run linear PD control for comparison:
+# Launch files
 
-```bash
-ros2 launch omron_cobra_s600_description linear_demo.launch.py
-```
+The main launch files are:
 
-The implementation is in
-[`scripts/control_demo.py`](scripts/control_demo.py). This is an approximate
-Gazebo dynamics demonstration and must not be used directly on physical
-hardware.
-
-## Linear versus nonlinear test process
-
-Use separate terminals because the Gazebo launch, diagnostic commands, and data
-recorder must run at the same time. Type each command once; do not join two
-`ros2 launch` commands on the same line.
-
-| Terminal | Purpose |
+| Launch file | Purpose |
 |---|---|
-| Terminal 1 | Run Gazebo, the effort controller, and either the linear or nonlinear controller |
-| Terminal 2 | Verify controllers, joint feedback, desired trajectory, and tracking error |
-| Terminal 3 | Record identical topics for later comparison |
+| `display.launch.py` | RViz-only visualization |
+| `gazebo.launch.py` | Base Gazebo simulation |
+| `linear_demo.launch.py` | Legacy PD demo |
+| `nonlinear_demo.launch.py` | Legacy computed-torque demo |
+| `pd_control.launch.py` | PD controller test |
+| `computed_torque_control.launch.py` | Computed-torque test |
+| `sliding_mode_control.launch.py` | Sliding-mode test |
+| `adaptive_control.launch.py` | Adaptive-gain robust test |
 
-Every terminal used for this experiment must use the same ROS domain:
-
-```bash
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-```
-
-### Prepare the latest version
-
-Run this once before the experiments:
-
-```bash
-cd ~/ros2_ws/src/omron_cobra_s600_description
-git switch main
-git pull --ff-only origin main
-chmod +x scripts/control_demo.py
-
-cd ~/ros2_ws
-source /opt/ros/jazzy/setup.bash
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --packages-select omron_cobra_s600_description --symlink-install
-source install/setup.bash
-```
-
-### Test 1: linear PD control
-
-In Terminal 1:
-
-```bash
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-pkill -f gz
-ros2 launch omron_cobra_s600_description linear_demo.launch.py move_time:=5.0
-```
-
-Keep Terminal 1 running. In Terminal 2:
-
-```bash
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-
-ros2 control list_controllers
-ros2 topic echo /joint_states --once
-ros2 topic echo /control_demo/error --once
-```
-
-Expected controller state:
+For the current controller comparison, use the four dedicated launch files:
 
 ```text
-effort_controller         active
-joint_state_broadcaster   active
+pd_control.launch.py
+computed_torque_control.launch.py
+sliding_mode_control.launch.py
+adaptive_control.launch.py
 ```
 
-In Terminal 3, record the test:
+---
 
-```bash
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-mkdir -p ~/ros2_ws/bags
-cd ~/ros2_ws/bags
+# Controller architecture
 
-ros2 bag record -o linear_test \
-  /clock \
-  /joint_states \
-  /control_demo/desired \
-  /control_demo/error \
-  /effort_controller/commands
+All four launch files use the same implementation:
+
+[`scripts/control_demo.py`](scripts/control_demo.py)
+
+The launch file mainly selects the controller mode and parameter values. The actual control equations are implemented in `control_demo.py`.
+
+```text
+launch file
+    |
+    | mode + gains
+    v
+control_demo.py
+    |
+    v
+desired_trajectory()
+    |
+    | q_ref, dq_ref, ddq_ref
+    v
+tracking_errors()
+    |
+    | e, e_dot
+    v
++-------------------------------+
+| PD                            |
+| Computed Torque               |
+| Sliding Mode                  |
+| Adaptive-Gain Robust Control  |
++-------------------------------+
+    |
+    | tau
+    v
+clamp_effort()
+    |
+    v
+/effort_controller/commands
+    |
+    v
+Gazebo Cobra s600
+    |
+    v
+/joint_states
+    |
+    +------ closed-loop feedback ------> control_demo.py
 ```
 
-Record several complete motion cycles, then press `Ctrl+C` in Terminal 3.
-Stop Terminal 1 with `Ctrl+C` before starting the nonlinear test.
+The mapping is:
 
-### Test 2: nonlinear computed-torque control
+```text
+pd_control.launch.py
+    -> mode = pd
+    -> linear_pd()
 
-Restart from the same initial position. In Terminal 1:
+computed_torque_control.launch.py
+    -> mode = computed_torque
+    -> nonlinear_computed_torque()
+
+sliding_mode_control.launch.py
+    -> mode = sliding_mode
+    -> sliding_mode_control()
+
+adaptive_control.launch.py
+    -> mode = adaptive
+    -> adaptive_control()
+```
+
+---
+
+# Desired trajectory
+
+The current reference trajectory moves Joint 1 and Joint 2 continuously.
+
+Joint 1:
+
+```text
+q1_d = q1_0 + A1 sin(omega t)
+```
+
+Joint 2:
+
+```text
+q2_d = q2_0 + A2 sin(omega t + pi/2)
+```
+
+Default values:
+
+```text
+Joint 1 amplitude = 0.8 rad
+Joint 2 amplitude = 0.5 rad
+Period            = 6.0 s
+Phase difference  = 90 degrees
+```
+
+Joint 3 and Joint 4 hold their startup positions.
+
+```text
+Joint 1 -> sinusoidal motion
+Joint 2 -> sinusoidal motion with 90-degree phase shift
+Joint 3 -> hold
+Joint 4 -> hold
+```
+
+Moving Joints 1 and 2 together is more useful than moving only Joint 1 because the first two SCARA joints are dynamically coupled. This makes the difference between a simple PD controller and model-based controllers easier to observe.
+
+---
+
+# Tracking error
+
+All four controllers use the same tracking error definition:
+
+```text
+e     = q_desired - q
+e_dot = dq_desired - dq
+```
+
+where:
+
+- `q_desired` is desired joint position
+- `q` is measured joint position
+- `dq_desired` is desired joint velocity
+- `dq` is measured joint velocity
+
+---
+
+# 1. PD control
+
+Implemented by:
+
+```python
+linear_pd()
+```
+
+Control law:
+
+```text
+tau = Kp * e + Kd * e_dot
+```
+
+PD control does not explicitly compensate for the robot dynamic model.
+
+Conceptually:
+
+```text
+desired trajectory
+      -> error
+      -> Kp*e + Kd*e_dot
+      -> torque
+```
+
+Main parameters:
+
+```text
+kp
+kd
+```
+
+Typical effects:
+
+| Observation | Possible adjustment |
+|---|---|
+| Slow response / large tracking error | Increase `Kp` |
+| Overshoot | Increase `Kd` |
+| Sustained oscillation | Reduce `Kp` or increase `Kd` |
+| Very sluggish motion | Reduce `Kd` |
+| Shaking / noisy effort | Reduce `Kd`; if necessary reduce `Kp` |
+| Effort saturation | Reduce gains |
+
+---
+
+# 2. Computed-torque control
+
+Implemented by:
+
+```python
+nonlinear_computed_torque()
+```
+
+The virtual acceleration is:
+
+```text
+v = ddq_desired + Kd*e_dot + Kp*e
+```
+
+Then the robot model converts the desired acceleration into torque:
+
+```text
+tau = M(q)v + C(q,dq)dq + g(q)
+```
+
+Conceptually:
+
+```text
+desired trajectory
+      -> tracking error
+      -> PD-like acceleration correction
+      -> inverse dynamics model
+      -> torque
+```
+
+Main parameters:
+
+```text
+kp
+kd
+```
+
+The key difference from simple PD is the use of the approximate robot dynamics model.
+
+---
+
+# SCARA inverse dynamics
+
+Implemented by:
+
+```python
+scara_inverse_dynamics()
+```
+
+The first two joints use an approximate coupled two-link SCARA model.
+
+Conceptually:
+
+```text
+M(q) * acceleration
++ Coriolis / centrifugal terms
++ gravity terms
+= required joint torque
+```
+
+The important coupling appears because Joint 1 torque depends on both Joint 1 and Joint 2 acceleration, and Joint 2 torque also depends on both accelerations.
+
+```text
+tau1 = m11*v1 + m12*v2 + C1
+
+tau2 = m12*v1 + m22*v2 + C2
+```
+
+This is why simultaneously moving Joints 1 and 2 produces a better nonlinear-control demonstration.
+
+---
+
+# 3. Sliding-mode control
+
+Implemented by:
+
+```python
+sliding_mode_control()
+```
+
+Sliding surface:
+
+```text
+s = e_dot + lambda*e
+```
+
+Virtual acceleration:
+
+```text
+v = ddq_desired
+    + lambda*e_dot
+    + smc_gain*tanh(s / boundary_layer)
+```
+
+The inverse dynamics model then converts `v` into torque.
+
+Main parameters:
+
+```text
+smc_lambda
+smc_gain
+boundary_layer
+```
+
+Parameter meaning:
+
+### `smc_lambda`
+
+Controls how strongly the tracking error is driven toward the sliding surface.
+
+Increasing it generally gives faster convergence but can make the response more aggressive.
+
+### `smc_gain`
+
+Controls the strength of the robust switching action.
+
+Increasing it can improve disturbance rejection but can also increase control effort and chattering-like behaviour.
+
+### `boundary_layer`
+
+The implementation uses:
+
+```text
+tanh(s / boundary_layer)
+```
+
+instead of a hard `sign(s)` function.
+
+Smaller boundary layer:
+
+```text
+more aggressive
+more sign-like
+more potential chattering
+```
+
+Larger boundary layer:
+
+```text
+smoother
+less chattering
+possibly larger tracking error
+```
+
+---
+
+# 4. Adaptive-gain robust control
+
+Implemented by:
+
+```python
+adaptive_control()
+```
+
+It uses the same sliding variable:
+
+```text
+s = e_dot + lambda*e
+```
+
+but the robust gain changes online.
+
+Adaptation law:
+
+```text
+k_hat_dot = gamma*abs(s) - sigma*k_hat
+```
+
+Virtual acceleration:
+
+```text
+v = ddq_desired
+    + lambda*e_dot
+    + k_hat*tanh(s / boundary_layer)
+```
+
+Main parameters:
+
+```text
+adaptive_gamma
+adaptive_sigma
+adaptive_gain_max
+smc_lambda
+boundary_layer
+```
+
+Interpretation:
+
+```text
+tracking error increases
+      -> |s| increases
+      -> adaptive gain increases
+      -> stronger corrective action
+```
+
+When tracking error becomes smaller, the sigma term causes the adaptive gain to decay gradually.
+
+Important: this implementation adapts the robust gain. It is not a full rigid-body parameter estimator and should not be described as a complete Slotine-Li parameter-adaptive controller.
+
+---
+
+# Relationship between the four controllers
+
+A useful conceptual progression is:
+
+```text
+PD
+ |
+ | add robot dynamics model
+ v
+Computed Torque
+ |
+ | add robust sliding term
+ v
+Sliding Mode
+ |
+ | make robust gain change online
+ v
+Adaptive-Gain Robust Control
+```
+
+| Controller | Error feedback | Robot model | Robust term | Online adaptation |
+|---|---:|---:|---:|---:|
+| PD | Yes | No | No | No |
+| Computed Torque | Yes | Yes | No | No |
+| Sliding Mode | Yes | Yes | Yes, fixed gain | No |
+| Adaptive-Gain Robust | Yes | Yes | Yes | Yes, robust gain |
+
+---
+
+# Visual controller testing workflow
+
+For the first stage of this project, the controllers can be compared visually in Gazebo.
+
+Do not start all four Gazebo simulations at the same time. Run one controller, observe it, stop Gazebo, then run the next controller.
+
+```text
+Test 1: PD
+    -> stop
+Test 2: Computed Torque
+    -> stop
+Test 3: Sliding Mode
+    -> stop
+Test 4: Adaptive
+```
+
+Running multiple Gazebo instances is technically possible with separate namespaces/domains/ports, but it is unnecessary for this experiment and can cause topic, controller-manager, Gazebo transport, and CPU/GPU conflicts.
+
+## Prepare once
 
 ```bash
-export ROS_DOMAIN_ID=42
+cd ~/ros2_ws/src/omron_cobra_s600_description
+git switch main
+git pull --ff-only origin main
+chmod +x scripts/control_demo.py
+
+cd ~/ros2_ws
 source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
+colcon build --packages-select omron_cobra_s600_description --symlink-install
+source install/setup.bash
+export ROS_DOMAIN_ID=42
+```
+
+---
+
+# Stage 1 - PD visual tuning
+
+Run:
+
+```bash
 pkill -f gz
-ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py move_time:=5.0
+ros2 launch omron_cobra_s600_description pd_control.launch.py
 ```
 
-Use Terminal 2 for the same controller and topic checks. In Terminal 3:
+Tune:
+
+```text
+kp
+kd
+```
+
+Suggested process:
+
+```text
+1. Start with baseline gains.
+2. Observe tracking speed, overshoot and oscillation.
+3. Change Kp.
+4. Rebuild.
+5. Relaunch.
+6. Observe again.
+7. Change Kd.
+8. Rebuild and repeat.
+```
+
+Change one parameter group at a time so that the effect is easy to understand visually.
+
+---
+
+# Stage 2 - Computed-torque visual tuning
+
+Run:
 
 ```bash
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-cd ~/ros2_ws/bags
-
-ros2 bag record -o nonlinear_test \
-  /clock \
-  /joint_states \
-  /control_demo/desired \
-  /control_demo/error \
-  /effort_controller/commands
+pkill -f gz
+ros2 launch omron_cobra_s600_description computed_torque_control.launch.py
 ```
 
-Again, record the same number of complete motion cycles.
+Tune:
 
-### Test different Kp and Kd gains
+```text
+kp
+kd
+```
 
-The gain arrays in `launch/nonlinear_demo.launch.py` use this joint order:
+Compare against PD while keeping the same:
+
+```text
+trajectory
+initial pose
+amplitude
+period
+Gazebo physics
+```
+
+Watch for:
+
+```text
+tracking accuracy
+phase lag
+overshoot
+oscillation
+smoothness
+```
+
+---
+
+# Stage 3 - Sliding-mode visual tuning
+
+Run:
+
+```bash
+pkill -f gz
+ros2 launch omron_cobra_s600_description sliding_mode_control.launch.py
+```
+
+Tune:
+
+```text
+smc_lambda
+smc_gain
+boundary_layer
+```
+
+Watch for:
+
+```text
+convergence speed
+tracking robustness
+shaking / chattering
+smoothness
+```
+
+---
+
+# Stage 4 - Adaptive visual tuning
+
+Run:
+
+```bash
+pkill -f gz
+ros2 launch omron_cobra_s600_description adaptive_control.launch.py
+```
+
+Tune:
+
+```text
+adaptive_gamma
+adaptive_sigma
+adaptive_gain_max
+smc_lambda
+boundary_layer
+```
+
+Watch for:
+
+```text
+how quickly the controller reacts to error
+whether the response becomes too aggressive
+whether oscillation decreases or increases
+tracking smoothness
+```
+
+---
+
+# Editing parameters and rebuilding
+
+The current controller parameters are provided through the launch files.
+
+Typical workflow:
+
+```text
+edit launch file
+    -> save
+    -> rebuild
+    -> source workspace
+    -> stop previous Gazebo
+    -> launch again
+    -> observe visually
+```
+
+Commands:
+
+```bash
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select omron_cobra_s600_description --symlink-install
+source install/setup.bash
+export ROS_DOMAIN_ID=42
+
+pkill -f gz
+ros2 launch omron_cobra_s600_description pd_control.launch.py
+```
+
+Replace the launch filename with the controller being tested.
+
+---
+
+# Joint order for gain arrays
+
+The gain arrays use this order:
 
 | Array index | Joint | Type |
 |---|---|---|
@@ -251,281 +717,183 @@ The gain arrays in `launch/nonlinear_demo.launch.py` use this joint order:
 | 2 | `joint_3` | prismatic |
 | 3 | `joint_4` | revolute |
 
-Baseline nonlinear gains:
+For example:
 
 ```python
-'kp': [18.0, 18.0, 45.0, 25.0],
-'kd': [8.0, 8.0, 14.0, 8.0],
+'kp': [40.0, 40.0, 220.0, 2.0]
+'kd': [12.0, 12.0, 35.0, 0.5]
 ```
 
-The feedback part of the controller is
+means:
 
 ```text
-position error:  e     = q_desired - q
-velocity error:  e_dot = dq_desired - dq
-feedback:        u     = Kp * e + Kd * e_dot
+index 0 -> Joint 1
+index 1 -> Joint 2
+index 2 -> Joint 3
+index 3 -> Joint 4
 ```
 
-- `Kp` is the position-correction gain. A larger value pulls the joint toward
-  its desired position more strongly and usually reduces slow tracking error.
-- `Kd` is the velocity-error gain and provides damping. A larger value usually
-  reduces overshoot and oscillation, but too much can make motion sluggish and
-  can amplify noisy velocity measurements.
+Joint 3 is prismatic, so its useful gain values can be very different from the rotary joints.
 
-Use the observed response to decide which gain to change:
+---
 
-| Observed behaviour | Likely cause | Adjustment |
-|---|---|---|
-| Slow response or large position error | `Kp` is too low | Increase `Kp` |
-| Fast response with overshoot | Damping is too low | Increase `Kd` |
-| Continuous oscillation | `Kp` is too high or `Kd` is too low | Decrease `Kp` or increase `Kd` |
-| Very sluggish motion | `Kd` is too high | Decrease `Kd` |
-| Repeated effort saturation | Gains are too aggressive, usually `Kp` | Decrease `Kp` |
-| Noisy effort or shaking | `Kd` may amplify velocity noise, or both gains are high | Decrease `Kd`; if needed, decrease `Kp` |
-| Smooth response, small error, little overshoot, and moderate effort | Gains are suitable | Keep the gains |
+# What good tuning looks like
 
-To test new gains, edit the arrays in
-`launch/nonlinear_demo.launch.py`. Tune only one joint at a time:
+A good controller is not simply the controller with the largest gains.
 
-1. Keep `Kd` fixed and increase `Kp` in steps of about 10-20 percent.
-2. Stop increasing `Kp` when oscillation, large overshoot, or effort
-   saturation appears; then reduce it slightly.
-3. Increase `Kd` gradually until overshoot and oscillation decrease.
-4. Repeat the same test for the next joint.
-
-A good gain set is not simply the largest one. It gives small tracking error,
-little overshoot, no sustained oscillation, smooth commanded effort, and a
-reasonable settling time.
-
-For example, test slightly higher Joint 1 gains:
-
-```python
-'kp': [20.0, 18.0, 45.0, 25.0],
-'kd': [9.0, 8.0, 14.0, 8.0],
-```
-
-Rebuild and launch a slow test first:
-
-```bash
-cd ~/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --packages-select omron_cobra_s600_description --symlink-install
-source install/setup.bash
-export ROS_DOMAIN_ID=42
-
-pkill -f gz
-ros2 launch omron_cobra_s600_description nonlinear_demo.launch.py move_time:=8.0
-```
-
-Record each gain set with a unique bag name, for example:
-
-```bash
-mkdir -p ~/ros2_ws/bags
-cd ~/ros2_ws/bags
-
-ros2 bag record -o nonlinear_kp20_kd9 \
-  /clock \
-  /joint_states \
-  /control_demo/desired \
-  /control_demo/error \
-  /effort_controller/commands
-```
-
-Keep the trajectory, initial pose, payload, physics settings, `move_time`, and
-recording duration unchanged. Compare tracking-error RMSE, maximum absolute
-error, overshoot, settling time, oscillation, and RMS commanded effort. Stop
-and lower the gains if the robot becomes unstable or repeatedly reaches its
-effort limits. Joint 3 is prismatic, so its useful gains can be very different
-from the rotary-joint gains.
-
-### Fair comparison requirements
-
-Keep these conditions identical:
-
-- initial joint configuration
-- desired trajectory and target
-- `move_time`
-- Gazebo physics settings
-- payload
-- recording duration
-
-Compare joint-error RMSE, maximum absolute error, phase lag, overshoot, and
-commanded effort. Repeat with `move_time:=8.0`, `5.0`, and `3.0`. Faster
-motion produces stronger dynamic coupling and usually makes the difference
-between linear PD and computed-torque control easier to observe.
-
-Inspect each recording with:
-
-```bash
-ros2 bag info ~/ros2_ws/bags/linear_test
-ros2 bag info ~/ros2_ws/bags/nonlinear_test
-```
-
-## Isolating Cobra from an FR3 controller manager
-
-If `ros2 control list_controllers` shows controllers such as
-`fr3_arm_controller` or `franka_robot_state_broadcaster`, the command is
-discovering the Franka controller manager instead of the Cobra simulation.
-Use a separate ROS domain for Cobra. Every Cobra terminal must use the same
-domain ID, and Gazebo must be restarted after changing it.
-
-Stop the old Gazebo process, then start Cobra in Terminal 1:
-
-```bash
-pkill -f gz
-ros2 daemon stop
-
-export ROS_DOMAIN_ID=42
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-
-ros2 launch omron_cobra_s600_description gazebo.launch.py
-```
-
-Keep Terminal 1 running. In Terminal 2:
-
-```bash
-export ROS_DOMAIN_ID=42
-ros2 daemon stop
-
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-
-ros2 control list_controllers
-```
-
-Expected result:
+Look for:
 
 ```text
-cobra_controller            joint_trajectory_controller/JointTrajectoryController  active
-joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster            active
+small tracking error
+little overshoot
+no sustained oscillation
+smooth movement
+reasonable response speed
+no repeated effort saturation
 ```
 
-If the command waits for
-`/controller_manager/list_controllers`, Gazebo is not running on the same
-ROS domain. Check both terminals:
+For visual tuning, change one parameter at a time and compare the motion under the same reference trajectory.
 
-```bash
-echo $ROS_DOMAIN_ID
-```
+---
 
-Both must print `42`. Do not activate FR3 controllers while troubleshooting
-the Cobra simulation.
+# Useful ROS 2 topics
 
-## Testing the Gazebo robot
-
-Open a second terminal while Gazebo is running:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source ~/ros2_ws/install/setup.bash
-```
-
-### 1. Verify the controllers
-
-```bash
-ros2 control list_controllers
-```
-
-Expected result:
+The controller uses:
 
 ```text
-cobra_controller            joint_trajectory_controller/JointTrajectoryController  active
-joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster            active
+/joint_states
+/control_demo/desired
+/control_demo/error
+/effort_controller/commands
 ```
 
-If either controller is not active, inspect the launch terminal before sending motion commands.
-
-### 2. Read the current joint positions
+Check current state:
 
 ```bash
 ros2 topic echo /joint_states --once
 ```
 
-Joint units and configured limits:
+Check tracking error:
+
+```bash
+ros2 topic echo /control_demo/error --once
+```
+
+Check controller state:
+
+```bash
+ros2 control list_controllers
+```
+
+Expected effort-control experiment state:
+
+```text
+effort_controller         active
+joint_state_broadcaster   active
+```
+
+---
+
+# Optional quantitative comparison
+
+Visual comparison is useful during early tuning. Later, the same four controllers can be compared quantitatively using rosbag data.
+
+Useful metrics include:
+
+```text
+tracking RMSE
+maximum absolute error
+phase lag
+overshoot
+settling time
+RMS torque
+torque variation
+```
+
+For a fair comparison, keep the following identical:
+
+```text
+initial configuration
+desired trajectory
+trajectory amplitude
+trajectory period
+Gazebo physics
+payload
+test duration
+```
+
+---
+
+# Isolating Cobra from an FR3 controller manager
+
+If `ros2 control list_controllers` shows controllers such as `fr3_arm_controller` or `franka_robot_state_broadcaster`, use a separate ROS domain for the Cobra simulation.
+
+In every Cobra terminal:
+
+```bash
+export ROS_DOMAIN_ID=42
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+```
+
+Then restart Gazebo:
+
+```bash
+pkill -f gz
+ros2 daemon stop
+ros2 launch omron_cobra_s600_description gazebo.launch.py
+```
+
+All Cobra terminals must use the same `ROS_DOMAIN_ID`.
+
+---
+
+# Basic Gazebo robot test
+
+Start Gazebo:
+
+```bash
+ros2 launch omron_cobra_s600_description gazebo.launch.py
+```
+
+Read joint positions:
+
+```bash
+ros2 topic echo /joint_states --once
+```
+
+Configured joint ranges:
 
 | Joint | Type | Unit | Configured range |
 |---|---|---|---|
-| `joint_1` | Revolute | radians | -1.8326 to +1.8326 |
-| `joint_2` | Revolute | radians | -2.6180 to +2.6180 |
-| `joint_3` | Prismatic | metres | 0.00 to 0.21 |
-| `joint_4` | Revolute | radians | -6.2832 to +6.2832 |
+| `joint_1` | Revolute | rad | -1.8326 to +1.8326 |
+| `joint_2` | Revolute | rad | -2.6180 to +2.6180 |
+| `joint_3` | Prismatic | m | 0.00 to 0.21 |
+| `joint_4` | Revolute | rad | -6.2832 to +6.2832 |
 
-Positive `joint_3` motion moves the quill downward because its URDF axis is `0 0 -1`.
+Positive Joint 3 motion moves the quill downward because its URDF axis is `0 0 -1`.
 
-### 3. Test each joint separately
+---
 
-Test Joint 1:
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_1], points: [{positions: [0.5], time_from_start: {sec: 3}}]}}"
-```
-
-Test Joint 2:
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_2], points: [{positions: [-0.5], time_from_start: {sec: 3}}]}}"
-```
-
-Test Joint 3 with 100 mm downward travel:
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_3], points: [{positions: [0.10], time_from_start: {sec: 3}}]}}"
-```
-
-Test Joint 4:
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_4], points: [{positions: [0.7], time_from_start: {sec: 3}}]}}"
-```
-
-### 4. Test coordinated motion
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.5, -0.5, 0.10, 0.7], time_from_start: {sec: 4}}]}}"
-```
-
-### 5. Return to the home configuration
-
-```bash
-ros2 action send_goal /cobra_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "{trajectory: {joint_names: [joint_1, joint_2, joint_3, joint_4], points: [{positions: [0.0, 0.0, 0.0, 0.0], time_from_start: {sec: 4}}]}}"
-```
-
-### Expected test results
-
-- Every action reports that the goal was accepted and finishes successfully.
-- `joint_1` and `joint_2` rotate the two horizontal SCARA links.
-- `joint_3` moves the quill vertically.
-- `joint_4` rotates the tool shaft.
-- The base remains fixed and the robot does not shake, collapse, or pass through its configured joint limits.
-- `ros2 topic echo /joint_states --once` reports positions close to the commanded targets.
-
-## Visual and collision geometry
-
-The committed STL files are used for appearance by default. The package exports its parent share directory to `GZ_SIM_RESOURCE_PATH`, allowing Gazebo to resolve the converted `model://omron_cobra_s600_description/meshes/...` URIs. Gazebo deliberately uses simple primitive collision geometry for faster and more stable contact simulation.
-
-To troubleshoot mesh loading or run without the STL visuals:
-
-```bash
-ros2 launch omron_cobra_s600_description gazebo.launch.py use_meshes:=false
-```
-
-## RViz-only display
+# RViz-only display
 
 ```bash
 ros2 launch omron_cobra_s600_description display.launch.py
 ```
 
 The committed STL visuals are loaded automatically.
+
+---
+
+# Current development goal
+
+The present goal is to use the same Cobra s600 simulation and trajectory to build intuition for progressively more advanced control methods:
+
+```text
+PD
+-> Computed Torque
+-> Sliding Mode
+-> Adaptive-Gain Robust Control
+```
+
+The controller code is intentionally organized so that the trajectory generator, tracking-error calculation, robot dynamics, controller laws, effort limiting, diagnostics, and ROS 2 interfaces can be studied separately inside `scripts/control_demo.py`.
